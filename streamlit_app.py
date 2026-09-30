@@ -1,151 +1,71 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+# Configuration de la page mobile
+st.set_page_config(page_title="Bot Pronostic Football", page_icon="⚽", layout="centered")
+
+# Titre principal
+st.title("⚽ Bot Pronostic Football")
+st.caption("Analyseur de tendances et probabilités de buts")
+
+st.write("---")
+
+# Section Équipe A
+st.header("🏠 Équipe à Domicile (Équipe A)")
+saisie_A = st.text_input(
+    "Derniers scores de l'Équipe A (séparés par des virgules) :",
+    value="2,1,3,1",
+    help="Exemple : 2,1,3,1"
 )
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
-
-# -----------------------------------------------------------------------------
-# Draw the actual page
-
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
-
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
-
-# Add some spacing
-''
-''
-
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+# Section Équipe B
+st.header("✈️️ Équipe à l'Extérieur (Équipe B)")
+saisie_B = st.text_input(
+    "Derniers scores de l'Équipe B (séparés par des virgules) :",
+    value="0,2,1,1",
+    help="Exemple : 0,2,1,1"
 )
 
-''
-''
+st.write("---")
 
+# Bouton de lancement
+if st.button("🚀 Lancer l'Analyse", type="primary", use_container_width=True):
+    try:
+        # Conversion des entrées en listes d'entiers
+        scores_A = [int(x.strip()) for x in saisie_A.split(",") if x.strip() != ""]
+        scores_B = [int(x.strip()) for x in saisie_B.split(",") if x.strip() != ""]
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
+        if not scores_A or not scores_B:
+            st.error("Veuillez saisir au moins un score pour chaque équipe.")
         else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
+            # Calculs statistiques
+            moy_A = sum(scores_A) / len(scores_A)
+            moy_B = sum(scores_B) / len(scores_B)
+            total_buts = moy_A + moy_B
 
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+            pct_A = (sum(1 for x in scores_A if x > 0) / len(scores_A)) * 100
+            pct_B = (sum(1 for x in scores_B if x > 0) / len(scores_B)) * 100
+
+            # Affichage des métriques clés
+            st.subheader("📊 Résultats de l'Analyse")
+            
+            col1, col2 = st.columns(2)
+            col1.metric("Moyenne Équipe A", f"{moy_A:.2f}")
+            col2.metric("Moyenne Équipe B", f"{moy_B:.2f}")
+
+            st.metric("Prévision Total Buts", f"{total_buts:.2f}")
+
+            # Diagnostic Over/Under 2.5
+            if total_buts > 2.5:
+                st.success("⚽ **Tendance Buts :** Plus de 2.5 buts (Over 2.5)")
+            else:
+                st.info("🛡️ **Tendance Buts :** Moins de 2.5 buts (Under 2.5)")
+
+            # Diagnostic BTTS (Les deux équipes marquent)
+            if pct_A >= 75 and pct_B >= 75:
+                st.success("🔥 **Les deux équipes marquent :** OUI")
+            else:
+                st.warning("❌ **Les deux équipes marquent :** NON")
+
+    except ValueError:
+        st.error("Format invalide. Assure-toi de mettre uniquement des chiffres séparés par des virgules.")
+
